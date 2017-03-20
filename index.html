@@ -12,21 +12,26 @@
         height: 100%;
         display: flex;
         flex-flow: column;
+        margin-top: 100px;
       }
     </style>
   </head>
   <body>
     <h1>PowerDue Audio Visualization</h1>
-    
-    <h2>Serial Connection</h2>
-    <label>Serial Port: </label>
-    <select id="serialportSelect">
-    </select>
-    <input type="button" value="Refresh" onclick="return runtime.onSerialRefresh()" />
-    <input type="button" value="Open" onclick="return runtime.onSerialOpen()" />
-    <input type="button" value="Close" onclick="return runtime.onSerialClose()" />
-    <input type="button" value="Clear Graph" onclick="return runtime.clearPlots()" />
-    
+    <div>
+      <label>Serial Port: </label>
+      <select id="serialportSelect">
+      </select>
+      <input type="button" value="Refresh" onclick="return runtime.onSerialRefresh()" />
+      <input type="button" value="Open" onclick="return runtime.onSerialOpen()" />
+      <input type="button" value="Close" onclick="return runtime.onSerialClose()" />
+      <br><br>
+      <label>Graph Control: </label>
+      <input type="checkbox" id="enableCheckbox" value="graphEnable" checked="checked">Render Updates</input>
+      <input type="button" value="Clear Graph" onclick="return runtime.clearPlots()" />
+      <input type="button" value="Export Data" onclick="return runtime.exportData()" />
+    </div>
+    <br><br>
     <div id="plot"/>
   </body>
 
