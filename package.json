@@ -1,0 +1,26 @@
+{
+  "name": "powerdue-audio-capture",
+  "version": "1.0.0",
+  "description": "A visualization tool for visualizing audio signals captured from PowerDues.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "rebuild": "npm rebuild --runtime=electron --target=1.4.3 --disturl=https://atom.io/download/atom-shell --build-from-source"
+  },
+  "repository": "https://github.com/ccceeefff/powerdue-audio-capture.git",
+  "keywords": [
+    "PowerDue",
+    "Connected Embedded Systems",
+    "CMU"
+  ],
+  "author": "ccceeefff",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "1.4.3",
+    "electron-rebuild": "1.5.0"
+  },
+  "dependencies": {
+    "plotly.js": "^1.24.2",
+    "serialport": "4.0.7"
+  }
+}

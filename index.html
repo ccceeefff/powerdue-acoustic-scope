@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <style>
+      html,body {
+        height: 100%;
+        margin: 20px;
+      }
+      div #plot = {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-flow: column;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>PowerDue Audio Visualization</h1>
+    
+    <h2>Serial Connection</h2>
+    <label>Serial Port: </label>
+    <select id="serialportSelect">
+    </select>
+    <input type="button" value="Refresh" onclick="return runtime.onSerialRefresh()" />
+    <input type="button" value="Open" onclick="return runtime.onSerialOpen()" />
+    <input type="button" value="Close" onclick="return runtime.onSerialClose()" />
+    <input type="button" value="Clear Graph" onclick="return runtime.clearPlots()" />
+    
+    <div id="plot"/>
+  </body>
+
+  <script>
+    // You can also require other files to run in this process
+    var runtime = require('./renderer.js');   
+
+    // refresh the serial port list
+    runtime.onSerialRefresh();
+  </script>
+</html>
