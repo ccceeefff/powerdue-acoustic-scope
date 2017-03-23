@@ -7,6 +7,7 @@ var SerialPort = require('serialport');
 var Plotly = require('plotly.js/lib/core');
 var http = require('http');
 var net = require('net');
+var linspace = require('linspace');
 const {dialog} = require('electron').remote;
 
 Number.prototype.clamp = function(min, max) {
@@ -16,10 +17,13 @@ Number.prototype.clamp = function(min, max) {
 var serialPortSelect = document.getElementById('serialportSelect');
 
 var plotDiv = document.getElementById('plot');
+var graphUpdateEnabled = document.getElementById('enableCheckbox');
 
 var time = [];
 var serialData = [];
 var traces = 0;
+
+var streams = {};
 
 var buffers = {};
 var traceNames = [];
@@ -36,7 +40,7 @@ function initPlot(){
   
   Plotly.plot(plotDiv, initTraces,
   {
-    xaxis: {title: 'Time (us)'},
+    xaxis: {title: 'Time (ms)'},
     yaxis: {title: 'Magnitude'},
     margin: {t: 0},
     autosize: true
@@ -51,6 +55,17 @@ function render(y, index){
   // Plotly.extendTraces(plotDiv, {y: [y]}, [0]);
 }
 
+function renderPacket(packet, index){
+  if(graphUpdateEnabled.checked){
+    console.log(packet);
+    Plotly.restyle(plotDiv, {
+      x: [packet.time],
+      y: [packet.samples],
+      name: packet.deviceID
+    }, [index]);
+  }
+}
+
 exports.clearPlots = function(){
   Plotly.purge(plotDiv);
   initPlot();
@@ -59,24 +74,80 @@ exports.clearPlots = function(){
 exports.exportData = function(){
   dialog.showSaveDialog({title: "powerdue-out.csv"}, function(filename){
     if(filename != null){
-      console.log("writing file to: " + filename);
+      console.log("writing file to: " + filename);``
     }
   });
   // write timestamped data buffers into csv file 
 }
 
-function addData(buffer, index){
-  var dataBuf = buffers["" + index];
-  if(dataBuf == null){
-    dataBuf = [];
+function addData(packet, index){
+  if(graphUpdateEnabled.checked){
+    var dataBuf = buffers["" + index];
+    if(dataBuf == null){
+      dataBuf = [];
+      buffers["" + index] = dataBuf;
+    }
+    dataBuf = dataBuf.concat(packet.samples);
+    if(dataBuf.length > 2048){
+      dataBuf = dataBuf.slice(packet.samples.length);
+    }
     buffers["" + index] = dataBuf;
+    render(dataBuf, index);
   }
-  dataBuf = dataBuf.concat(Array.from(buffer));
-  if(dataBuf.length > 2048){
-    dataBuf = dataBuf.slice(buffer.length);
+}
+
+var PACKET_HEADER = "F0F0F0F0";
+var PACKET_FOOTER = "F7F7F7F7";
+
+function parsePacket(packet){
+  var samples = Array.from(new Uint16Array(packet.buffer, packet.byteOffset + 28, (packet.byteLength - 28)/Uint16Array.BYTES_PER_ELEMENT));
+  var timestamp = packet.readUIntLE(12, 6);
+  var samplingFreq = packet.readUInt32LE(8);
+  var startTime = (timestamp/samplingFreq) * 1000;  // show as ms
+  var endTime = ((timestamp+samples.length)/samplingFreq) * 1000; // show as ms
+  return {
+    deviceID: packet.toString('ascii', 0, 8),
+    samplingFreq: samplingFreq,
+    timestamp: timestamp,  // javascript can only support upto 6 bytes -_-
+    reserved: packet.readUIntLE(20, 8),
+    sampleSize: samples.length,
+    samples: samples,
+    time: linspace(startTime, endTime, samples.length)
+  };
+}
+
+function packetFound(packet, index){
+  var p = parsePacket(packet);
+  renderPacket(p, index);
+  // addData(p, index);
+}
+
+function detectPacket(buffer, index){
+  var pktHeaderIndex = buffer.indexOf(PACKET_HEADER, "hex");
+  var pktFooterIndex = buffer.indexOf(PACKET_FOOTER, "hex");
+  if(pktHeaderIndex != -1 && pktFooterIndex != -1){
+    if(pktHeaderIndex > pktFooterIndex){
+      // we missed the first packet header, disregard everything until the packet footer
+      return buffer.slice(pktFooterIndex + 4);
+    } else {  
+      var packet = buffer.slice(pktHeaderIndex + 4, pktFooterIndex);
+      packetFound(packet, index);
+      return buffer.slice(pktFooterIndex + 4);
+    }
+  } else {
+    return buffer;
   }
-  buffers["" + index] = dataBuf;
-  render(dataBuf, index);
+}
+
+function addStreamData(buffer, index){
+  var dataBuf = streams["" + index];
+  if(dataBuf == null){
+    dataBuf = Buffer.alloc(0);
+    streams["" + index] = dataBuf;
+  }
+  dataBuf = Buffer.concat([dataBuf, buffer]);
+  dataBuf = detectPacket(dataBuf, index);
+  streams["" + index] = dataBuf;
 }
 
 exports.onSerialRefresh = function(){
@@ -116,8 +187,9 @@ exports.onSerialOpen = function(){
   });
 
   port.on('data', function(data){
-    var buf = new Uint16Array(data.buffer, data.byteOffset, data.byteLength/Uint16Array.BYTES_PER_ELEMENT);
-    addData(buf, 0);
+    addStreamData(data, 0);
+    // var buf = new Uint16Array(data.buffer, data.byteOffset, data.byteLength/Uint16Array.BYTES_PER_ELEMENT);
+    // addData(buf, 0);
   });
 
   port.on('close', function(){
@@ -138,13 +210,6 @@ exports.onSerialClose = function(){
   port = null;
 }
 
-// const server = http.createServer((req, res) =>{
-//   console.log(req);
-//   if(req.method == "GET"){
-//     console.log(req.connection.remoteAddress);
-//   }
-//   res.end();
-// });
 const server = net.createServer((c) => {
   traces++;
   c.traceNumber = traces;
@@ -154,8 +219,10 @@ const server = net.createServer((c) => {
     console.log("client disconnected");
   });
   c.on('data', (data) => {
-    var buf = new Uint16Array(data.buffer, data.byteOffset, data.byteLength/Uint16Array.BYTES_PER_ELEMENT);
-    addData(buf, c.traceNumber);
+    console.log("incoming data..");
+    addStreamData(data, c.traceNumber);
+    // var buf = new Uint16Array(data.buffer, data.byteOffset, data.byteLength/Uint16Array.BYTES_PER_ELEMENT);
+    // addData(buf, c.traceNumber);
   });
 });
 server.on('error', (err) => {
