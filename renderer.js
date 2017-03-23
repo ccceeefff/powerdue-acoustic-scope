@@ -85,7 +85,7 @@ function render(y, index){
 function renderPacket(packet, index){
   if(captureMode > 0){  // if not stopped
     if(captureMode > 1 || (capturedPackets["" + index] == null)){  // continuous mode or we have not captured a packet for this index yet
-      // console.log(packet);
+      console.log(packet);
       Plotly.restyle(plotDiv, {
         x: [packet.time],
         y: [packet.samples],
@@ -95,7 +95,6 @@ function renderPacket(packet, index){
       
       // if we have captured packets for each device, except serial (hence -1)
       // change to stopped mode
-      console.log(Object.keys(capturedPackets).length + " " + (traceNames.length-1));
       if(captureMode == 1 && Object.keys(capturedPackets).length >= (traceNames.length-1)){
         setCaptureMode(0);
       }
@@ -140,7 +139,6 @@ function writePacketsToFile(packets, filename){
     fs.writeSync(fd, "Reserved Byte " + (i+1));
     for(var p=0; p < packets.length; p++){
       var packet = packets[p];
-      console.log(packet);
       fs.writeSync(fd, ",");
       fs.writeSync(fd, "" + packet.reserved[i]);
     }
