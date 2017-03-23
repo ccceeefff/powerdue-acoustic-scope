@@ -9,6 +9,7 @@ var http = require('http');
 var net = require('net');
 var linspace = require('linspace');
 const {dialog} = require('electron').remote;
+const {shell} = require('electron')
 
 Number.prototype.clamp = function(min, max) {
   return Math.min(Math.max(this, min), max);
@@ -108,13 +109,123 @@ function clearPlots(){
 }
 exports.clearPlots = clearPlots;
 
-exports.exportData = function(){
-  dialog.showSaveDialog({title: "powerdue-out.csv"}, function(filename){
-    if(filename != null){
-      console.log("writing file to: " + filename);``
+function writePacketsToFile(packets, filename){
+  console.log("writing file to: " + filename);
+  console.log(packets);
+  
+  // open file for writing
+  var fd = fs.openSync(filename, 'w');
+  
+  // write the device id on the first line
+  fs.writeSync(fd, "Device ID");
+  for(var p=0; p < packets.length; p++){
+    var packet = packets[p];
+    fs.writeSync(fd, ",");
+    fs.writeSync(fd, packet.deviceID);
+  }
+  fs.writeSync(fd, "\r\n");
+  
+  // write sampling frequency
+  fs.writeSync(fd, "Sampling Frequency");
+  for(var p=0; p < packets.length; p++){
+    var packet = packets[p];
+    fs.writeSync(fd, ",");
+    fs.writeSync(fd, "" + packet.samplingFreq);
+  }
+  fs.writeSync(fd, "\r\n");
+  
+  // write reserved bytes
+  
+  for(var i=0; i < 8; i++){
+    fs.writeSync(fd, "Reserved Byte " + (i+1));
+    for(var p=0; p < packets.length; p++){
+      var packet = packets[p];
+      console.log(packet);
+      fs.writeSync(fd, ",");
+      fs.writeSync(fd, "" + packet.reserved[i]);
+    }
+    fs.writeSync(fd, "\r\n");
+  }
+  
+  // write timestamp
+  fs.writeSync(fd, "Timestamp");
+  for(var p=0; p < packets.length; p++){
+    var packet = packets[p];
+    fs.writeSync(fd, ",");
+    fs.writeSync(fd, "" + packet.timestamp);
+  }
+  fs.writeSync(fd, "\r\n");
+  
+  // write number of samples
+  // also get max length of samples
+  var maxSize = 0;
+  fs.writeSync(fd, "Length");
+  for(var p=0; p < packets.length; p++){
+    var packet = packets[p];
+    fs.writeSync(fd, ",");
+    fs.writeSync(fd, "" + packet.sampleSize);
+    maxSize = Math.max(packet.sampleSize, maxSize);
+  }
+  fs.writeSync(fd, "\r\n");
+  
+  // write header
+  fs.writeSync(fd, "Index (Sample#)");
+  for(var p=0; p < packets.length; p++){
+    var packet = packets[p];
+    fs.writeSync(fd, ",");
+    fs.writeSync(fd, "Magnitude");
+  }
+  fs.writeSync(fd, "\r\n");
+  
+  // write samples
+  for(var i=0; i < maxSize; i++){
+    fs.writeSync(fd, "" + (i+1));
+    for(var p=0; p < packets.length; p++){
+      var packet = packets[p];
+      fs.writeSync(fd, ",");
+      if(i < packet.sampleSize){
+        fs.writeSync(fd, "" + packet.samples[i]);
+      }
+    }
+    fs.writeSync(fd, "\r\n");
+  }
+  
+  // close file
+  fs.closeSync(fd);
+  
+  console.log("Done writing file!");
+  dialog.showMessageBox({
+    type: 'info',
+    buttons: ['OK', 'Open File'],
+    message: "File written to: " + filename
+  },
+  function(response){
+    if(response == 1){  // open file
+      shell.openItem(filename);
     }
   });
-  // write timestamped data buffers into csv file 
+}
+
+exports.exportData = function(){
+  // stop capturing first 
+  setCaptureMode(0);
+
+  // make a copy of the packets so we don't lose them 
+  var packets = [];
+  for(var key in capturedPackets){
+    packets.push(capturedPackets[key]);
+  }
+  
+  dialog.showSaveDialog({
+    title: "events.csv",
+    filters: [
+      {name: 'CSV Files', extensions: ['csv']}
+    ]
+  }, function(filename){
+    if(filename != null){
+      writePacketsToFile(packets, filename);
+    }
+  });
 }
 
 function addData(packet, index){
@@ -142,11 +253,17 @@ function parsePacket(packet){
   var samplingFreq = packet.readUInt32LE(8);
   var startTime = (timestamp/samplingFreq) * 1000;  // show as ms
   var endTime = ((timestamp+samples.length)/samplingFreq) * 1000; // show as ms
+  
+  var reservedBytes = [];
+  for(var i=0; i < 8; i++){
+    reservedBytes.push(packet.readUInt8(20 + i));
+  }
+  
   return {
     deviceID: packet.toString('ascii', 0, 8),
     samplingFreq: samplingFreq,
     timestamp: timestamp,  // javascript can only support upto 6 bytes -_-
-    reserved: packet.readUIntLE(20, 8),
+    reserved: reservedBytes,
     sampleSize: samples.length,
     samples: samples,
     time: linspace(startTime, endTime, samples.length)
