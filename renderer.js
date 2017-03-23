@@ -25,15 +25,38 @@ var traces = 0;
 
 var streams = {};
 
+var captureMode = 2;  // by default capture continuously
+var capturedPackets = {};
 var buffers = {};
 var traceNames = [];
 traceNames.push("Serial");
+
+function setCaptureMode(mode){
+  captureMode = mode;
+  // update label
+  var modeLabel = document.getElementById('graphMode');
+  switch(captureMode){
+    case 0:
+      modeLabel.textContent = "Stopped";
+      break;
+    case 1:
+      modeLabel.textContent = "Capture Once";
+      // clear out previously captured packets
+      clearPlots();
+      break;
+    case 2:
+      modeLabel.textContent = "Continuous Capture";
+      break;
+  }
+}
+exports.setCaptureMode = setCaptureMode;
 
 function initPlot(){
   var initTraces = [];
   for(var i=0; i < traces+1; i++){
     initTraces.push({
-      y: [],
+      x: [null],
+      y: [null],
       name: traceNames[i]
     });
   }
@@ -45,6 +68,9 @@ function initPlot(){
     margin: {t: 0},
     autosize: true
   });
+  
+  // reset packet captures
+  capturedPackets = {};
 }
 initPlot();
 
@@ -56,20 +82,31 @@ function render(y, index){
 }
 
 function renderPacket(packet, index){
-  if(graphUpdateEnabled.checked){
-    console.log(packet);
-    Plotly.restyle(plotDiv, {
-      x: [packet.time],
-      y: [packet.samples],
-      name: packet.deviceID
-    }, [index]);
+  if(captureMode > 0){  // if not stopped
+    if(captureMode > 1 || (capturedPackets["" + index] == null)){  // continuous mode or we have not captured a packet for this index yet
+      // console.log(packet);
+      Plotly.restyle(plotDiv, {
+        x: [packet.time],
+        y: [packet.samples],
+        name: packet.deviceID + "/" + traceNames[index]
+      }, [index]);
+      capturedPackets["" + index] = packet;
+      
+      // if we have captured packets for each device, except serial (hence -1)
+      // change to stopped mode
+      console.log(Object.keys(capturedPackets).length + " " + (traceNames.length-1));
+      if(captureMode == 1 && Object.keys(capturedPackets).length >= (traceNames.length-1)){
+        setCaptureMode(0);
+      }
+    }
   }
 }
 
-exports.clearPlots = function(){
+function clearPlots(){
   Plotly.purge(plotDiv);
   initPlot();
 }
+exports.clearPlots = clearPlots;
 
 exports.exportData = function(){
   dialog.showSaveDialog({title: "powerdue-out.csv"}, function(filename){

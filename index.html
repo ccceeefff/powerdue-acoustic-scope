@@ -29,10 +29,11 @@
       <input type="button" value="Refresh" onclick="return runtime.onSerialRefresh()" />
       <input type="button" value="Open" onclick="return runtime.onSerialOpen()" />
       <input type="button" value="Close" onclick="return runtime.onSerialClose()" />
-      <br><br>
-      <label>Graph Control: </label>
-      <input type="checkbox" id="enableCheckbox" value="graphEnable" checked="checked">Render Updates</input>
-      <input type="button" value="Clear Graph" onclick="return runtime.clearPlots()" />
+      <h4><label>Capture Mode: </label><label id="graphMode"></label></h4>
+      <input type="button" value="Continous" onclick="return runtime.setCaptureMode(2)"/>
+      <input type="button" value="Capture One" onclick="return runtime.setCaptureMode(1)"/>
+      <input type="button" value="Stop" onclick="return runtime.setCaptureMode(0)"/>
+      <input type="button" value="Clear Plots" onclick="return runtime.clearPlots()" />
       <input type="button" value="Export Data" onclick="return runtime.exportData()" />
     </div>
     <br><br>
@@ -45,6 +46,9 @@
 
     // refresh the serial port list
     runtime.onSerialRefresh();
+    
+    // set mode to continuous
+    runtime.setCaptureMode(2);
     
     require('dns').lookup(require('os').hostname(), function (err, add, fam) {
       console.log('Local IP: '+ add);
