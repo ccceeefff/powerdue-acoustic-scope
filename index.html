@@ -19,6 +19,10 @@
   <body>
     <h1>PowerDue Audio Visualization</h1>
     <div>
+      <h4>
+        <label>Server IP: </label>
+        <label id="serverIpLabel"></label>
+      </h4>
       <label>Serial Port: </label>
       <select id="serialportSelect">
       </select>
@@ -41,5 +45,11 @@
 
     // refresh the serial port list
     runtime.onSerialRefresh();
+    
+    require('dns').lookup(require('os').hostname(), function (err, add, fam) {
+      console.log('Local IP: '+ add);
+      var ipLabel = document.getElementById('serverIpLabel');
+      ipLabel.textContent = add;
+    });
   </script>
 </html>
