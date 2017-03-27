@@ -17,7 +17,7 @@
     </style>
   </head>
   <body>
-    <h1>PowerDue Audio Visualization</h1>
+    <h1>PowerDué Acoustic Visualization</h1>
     <div>
       <h4>
         <label>Server IP: </label>
@@ -50,10 +50,10 @@
     // set mode to continuous
     runtime.setCaptureMode(2);
     
-    require('dns').lookup(require('os').hostname(), function (err, add, fam) {
-      console.log('Local IP: '+ add);
-      var ipLabel = document.getElementById('serverIpLabel');
-      ipLabel.textContent = add;
-    });
+    var ip = require("ip");
+    console.log('Local IP: '+ ip.address());
+    var ipLabel = document.getElementById('serverIpLabel');
+    ipLabel.textContent = ip.address();
+
   </script>
 </html>
