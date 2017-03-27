@@ -23,12 +23,15 @@
         <label>Server IP: </label>
         <label id="serverIpLabel"></label>
       </h4>
+      <div hidden>
+      <!-- Hide the serial port items since we dont need them -->
       <label>Serial Port: </label>
       <select id="serialportSelect">
       </select>
       <input type="button" value="Refresh" onclick="return runtime.onSerialRefresh()" />
       <input type="button" value="Open" onclick="return runtime.onSerialOpen()" />
       <input type="button" value="Close" onclick="return runtime.onSerialClose()" />
+      </div>
       <h4><label>Capture Mode: </label><label id="graphMode"></label></h4>
       <input type="button" value="Continous" onclick="return runtime.setCaptureMode(2)"/>
       <input type="button" value="Capture One" onclick="return runtime.setCaptureMode(1)"/>
