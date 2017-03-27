@@ -133,17 +133,23 @@ function writePacketsToFile(packets, filename){
   }
   fs.writeSync(fd, "\r\n");
   
-  // write reserved bytes
-  
-  for(var i=0; i < 8; i++){
-    fs.writeSync(fd, "Reserved Byte " + (i+1));
-    for(var p=0; p < packets.length; p++){
-      var packet = packets[p];
-      fs.writeSync(fd, ",");
-      fs.writeSync(fd, "" + packet.reserved[i]);
-    }
-    fs.writeSync(fd, "\r\n");
+  // write clock offset
+  fs.writeSync(fd, "Clock Offset");
+  for(var p=0; p < packets.length; p++){
+    var packet = packets[p];
+    fs.writeSync(fd, ",");
+    fs.writeSync(fd, "" + packet.clockOffset);
   }
+  fs.writeSync(fd, "\r\n");
+  
+  // write network delay
+  fs.writeSync(fd, "Network Delay");
+  for(var p=0; p < packets.length; p++){
+    var packet = packets[p];
+    fs.writeSync(fd, ",");
+    fs.writeSync(fd, "" + packet.networkDelay);
+  }
+  fs.writeSync(fd, "\r\n");
   
   // write timestamp
   fs.writeSync(fd, "Timestamp");
@@ -252,16 +258,15 @@ function parsePacket(packet){
   var startTime = (timestamp/samplingFreq) * 1000;  // show as ms
   var endTime = ((timestamp+samples.length)/samplingFreq) * 1000; // show as ms
   
-  var reservedBytes = [];
-  for(var i=0; i < 8; i++){
-    reservedBytes.push(packet.readUInt8(20 + i));
-  }
+  var clockOffset = packet.readInt32LE(20);
+  var networkDelay = packet.readInt32LE(24);
   
   return {
     deviceID: packet.toString('ascii', 0, 8),
     samplingFreq: samplingFreq,
     timestamp: timestamp,  // javascript can only support upto 6 bytes -_-
-    reserved: reservedBytes,
+    clockOffset: clockOffset,
+    networkDelay: networkDelay,
     sampleSize: samples.length,
     samples: samples,
     time: linspace(startTime, endTime, samples.length)
