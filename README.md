@@ -1,4 +1,4 @@
-# PowerDue Audio Capture
+# PowerDue Acoustic Visualizer
 
 This tool allows you to capture signal traces from several PowerDues and visualize them on a line plot.
 
@@ -20,13 +20,13 @@ To run this tool, you will need to install node.js. Visit https://nodejs.org and
 
 ## Using the tool
 
-### Serial Streaming Mode
+The tool is primarily used by receiving TCP packets from PowerDues. The PowerDue Acoustic Sensor firmware submits a fixed packet structure containing all the information for each event. When running this app, it will automatically host a TCP server at port 4000 which PowerDues can connect to and send information. You must configure your Acoustic Sensors to submit data to your own IP.
 
-The tool can render a stream of 16-bit unsigned integers from a serial port. Simply open up the serial port of your PowerDue and stream raw bytes from the ADC to the serial port.
+To capture data, you may use one of two modes.
+* Continuous - this mode will continuously accept packets and update the graph with each packet. 
+* Capture Once - this mode will wait for one packet from each connected device. After receiving a packet from each, it will automatically stop capturing. This is useful for collecting data for specific events.
 
-### TCP Streaming Mode
-
-The tool will also handle data coming in from TCP connections. Each TCP connection will register as a new trace.
+Exporting data will generate a .csv file containing the information from each packet currently displayed in the graph.
 
 ## Troubleshooting
 
