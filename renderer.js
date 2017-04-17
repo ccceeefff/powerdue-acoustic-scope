@@ -8,12 +8,16 @@ var Plotly = require('plotly.js/lib/core');
 var http = require('http');
 var net = require('net');
 var linspace = require('linspace');
+var mqtt = require('mqtt')
+
 const {dialog} = require('electron').remote;
 const {shell} = require('electron')
 
 Number.prototype.clamp = function(min, max) {
   return Math.min(Math.max(this, min), max);
 };
+
+var mqttClient  = mqtt.connect('mqtt://broker.hivemq.com')
 
 var serialPortSelect = document.getElementById('serialportSelect');
 
@@ -280,6 +284,8 @@ function packetFound(packet, index){
 }
 
 function detectPacket(buffer, index){
+  console.log('detectPacket');
+  console.log(buffer);
   var pktHeaderIndex = buffer.indexOf(PACKET_HEADER, "hex");
   var pktFooterIndex = buffer.indexOf(PACKET_FOOTER, "hex");
   if(pktHeaderIndex != -1 && pktFooterIndex != -1){
@@ -366,6 +372,18 @@ exports.onSerialClose = function(){
   port.close();
   port = null;
 }
+
+mqttClient.on('connect', function () {
+  mqttClient.subscribe('application/2/node/+/rx')
+  console.log('mqtt connect');
+})
+ 
+mqttClient.on('message', function (topic, message) {
+  // TODO: packet format
+  console.log(message.toString())
+  var data = Buffer.from(message.toString(),'base64');
+  addStreamData(data, 0);
+})
 
 const server = net.createServer((c) => {
   traces++;
