@@ -41,12 +41,18 @@ traceNames.push("Serial");
 
 // devices settings
 var devices = [];
+var device_traces = {};
+
 var configId = 0;
 var sampleRate = 1000;
 var stdDiff = 20.0;
+var syncPeriod = 10000;
+
 
 function setSystemParams(){
   var stdDifferenceInput = document.getElementById('stdDifferenceInput');
+  var syncPeriodInput = document.getElementById('syncPeriodInput');
+
   var params = [];
 
   if(sampleRate != sampleRateSelect.value) {
@@ -56,6 +62,10 @@ function setSystemParams(){
   if(stdDifferenceInput.value != "" && stdDiff != parseFloat(stdDifferenceInput.value)) {
     stdDiff = parseFloat(stdDifferenceInput.value);
     params = appendParam(params, "trigger_default_std_distance", 2, "float", stdDiff);
+  }
+  if(syncPeriodInput.value != "" && syncPeriod != parseInt(syncPeriodInput.value)) {
+    syncPeriod = parseFloat(syncPeriodInput.value);
+    params = appendParam(params, "sync_period", 3, "uint32", syncPeriod);
   }
 
   if(params.length === 0) {
@@ -68,8 +78,7 @@ function setSystemParams(){
     "config_id": configId,
     "params":params
   };
-
-  console.log(downlink_msg);
+  // console.log(downlink_msg);
   
   // publish to all!!!!
   for(i in devices) {
@@ -143,8 +152,6 @@ function renderPacket(packet, index){
   if(captureMode > 0){  // if not stopped
     if(captureMode > 1 || (capturedPackets["" + index] == null)){  // continuous mode or we have not captured a packet for this index yet
       console.log(packet);
-      // // update sample rate field
-      // sampleRateSelect.value = packet.samplingFreq;
 
       Plotly.restyle(plotDiv, {
         x: [packet.time],
@@ -429,28 +436,26 @@ exports.onSerialClose = function(){
 
 mqttClient.on('connect', function () {
   mqttClient.subscribe('PowerDue_Acoustic/node/+/rx');
-
   console.log('mqtt connect');
 })
  
 mqttClient.on('message', function (topic, message) {
-
-  // console.log(message.toString());
   var matches = topic.match(/^PowerDue_Acoustic\/node\/(.+)\/rx/);
   var deviceID = matches[1];
 
   if(devices.indexOf(deviceID) === -1) {
     console.log("new device: "+ deviceID);
-
-    devices.push(deviceID);
+    
     traces++;
+    devices.push(deviceID);
+    device_traces[deviceID] = traces;
     Plotly.addTraces(plotDiv, {y: [], name: deviceID}); 
     traceNames.push(deviceID);
   }
 
   var jsonMsg = JSON.parse(message.toString());
   var data = Buffer.from(jsonMsg.data,'base64');
-  addStreamData(data, traces);
+  addStreamData(data, device_traces[deviceID]);
 })
 
 const server = net.createServer((c) => {
