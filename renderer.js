@@ -17,9 +17,12 @@ Number.prototype.clamp = function(min, max) {
   return Math.min(Math.max(this, min), max);
 };
 
-var mqttClient  = mqtt.connect('mqtt://broker.hivemq.com')
+// var mqttClient  = mqtt.connect('mqtt://broker.hivemq.com');
+var mqttClient  = mqtt.connect('tcp://198.199.94.236');
 
 var serialPortSelect = document.getElementById('serialportSelect');
+var sampleRateSelect = document.getElementById('sampleRateSelect');
+
 
 var plotDiv = document.getElementById('plot');
 var graphUpdateEnabled = document.getElementById('enableCheckbox');
@@ -35,6 +38,56 @@ var capturedPackets = {};
 var buffers = {};
 var traceNames = [];
 traceNames.push("Serial");
+
+// devices settings
+var devices = [];
+var configId = 0;
+var sampleRate = 1000;
+var stdDiff = 20.0;
+
+function setSystemParams(){
+  var stdDifferenceInput = document.getElementById('stdDifferenceInput');
+  var params = [];
+
+  if(sampleRate != sampleRateSelect.value) {
+    sampleRate = sampleRateSelect.value;
+    params = appendParam(params, "adc_sample_rate", 1, "uint32", sampleRate);
+  }
+  if(stdDifferenceInput.value != "" && stdDiff != parseFloat(stdDifferenceInput.value)) {
+    stdDiff = parseFloat(stdDifferenceInput.value);
+    params = appendParam(params, "trigger_default_std_distance", 2, "float", stdDiff);
+  }
+
+  if(params.length === 0) {
+    // nothing to send
+    return;
+  }
+
+  configId++;
+  var downlink_msg = {
+    "config_id": configId,
+    "params":params
+  };
+
+  console.log(downlink_msg);
+  
+  // publish to all!!!!
+  for(i in devices) {
+    mqttClient.publish("PowerDue_Acoustic/node/"+devices[i]+"/tx", JSON.stringify(downlink_msg));
+  }
+}
+exports.setSystemParams = setSystemParams;
+
+function appendParam(settings, name, code, type, value) {
+  var param = {
+    "name": name,
+    "code": code,
+    "type": type,
+    "value": value
+  }
+  settings.push(param);
+  return settings;
+}
 
 function setCaptureMode(mode){
   captureMode = mode;
@@ -90,6 +143,9 @@ function renderPacket(packet, index){
   if(captureMode > 0){  // if not stopped
     if(captureMode > 1 || (capturedPackets["" + index] == null)){  // continuous mode or we have not captured a packet for this index yet
       console.log(packet);
+      // // update sample rate field
+      // sampleRateSelect.value = packet.samplingFreq;
+
       Plotly.restyle(plotDiv, {
         x: [packet.time],
         y: [packet.samples],
@@ -284,8 +340,6 @@ function packetFound(packet, index){
 }
 
 function detectPacket(buffer, index){
-  console.log('detectPacket');
-  console.log(buffer);
   var pktHeaderIndex = buffer.indexOf(PACKET_HEADER, "hex");
   var pktFooterIndex = buffer.indexOf(PACKET_FOOTER, "hex");
   if(pktHeaderIndex != -1 && pktFooterIndex != -1){
@@ -374,15 +428,29 @@ exports.onSerialClose = function(){
 }
 
 mqttClient.on('connect', function () {
-  mqttClient.subscribe('application/2/node/+/rx')
+  mqttClient.subscribe('PowerDue_Acoustic/node/+/rx');
+
   console.log('mqtt connect');
 })
  
 mqttClient.on('message', function (topic, message) {
-  // TODO: packet format
-  console.log(message.toString())
-  var data = Buffer.from(message.toString(),'base64');
-  addStreamData(data, 0);
+
+  // console.log(message.toString());
+  var matches = topic.match(/^PowerDue_Acoustic\/node\/(.+)\/rx/);
+  var deviceID = matches[1];
+
+  if(devices.indexOf(deviceID) === -1) {
+    console.log("new device: "+ deviceID);
+
+    devices.push(deviceID);
+    traces++;
+    Plotly.addTraces(plotDiv, {y: [], name: deviceID}); 
+    traceNames.push(deviceID);
+  }
+
+  var jsonMsg = JSON.parse(message.toString());
+  var data = Buffer.from(jsonMsg.data,'base64');
+  addStreamData(data, traces);
 })
 
 const server = net.createServer((c) => {
