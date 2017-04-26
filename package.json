@@ -23,6 +23,7 @@
     "ip": "^1.1.5",
     "linspace": "^1.0.0",
     "plotly.js": "^1.24.2",
-    "serialport": "4.0.7"
+    "serialport": "4.0.7",
+    "mqtt": "2.6.2"
   }
 }
